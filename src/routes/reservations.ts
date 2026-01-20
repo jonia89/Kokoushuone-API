@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { reservations } from "../db/inMemoryDb";
 import { Reservation } from "../models/Reservation";
+import { rooms } from "../db/roomsDb";
 
 const router = Router();
 let idCounter = 1;
@@ -9,7 +10,7 @@ function isOverlapping(
   startA: Date,
   endA: Date,
   startB: Date,
-  endB: Date
+  endB: Date,
 ): boolean {
   return startA < endB && startB < endA;
 }
@@ -42,9 +43,14 @@ router.post("/", (req: Request, res: Response) => {
     });
   }
 
+  const roomExists = rooms.find((r) => r.id === roomId);
+  if (!roomExists) {
+    return res.status(404).json({ error: "Room does not exist" });
+  }
+
   const overlapping = reservations.find(
     (r) =>
-      r.roomId === roomId && isOverlapping(start, end, r.startTime, r.endTime)
+      r.roomId === roomId && isOverlapping(start, end, r.startTime, r.endTime),
   );
 
   if (overlapping) {
