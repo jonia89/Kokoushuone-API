@@ -1,6 +1,6 @@
 export interface Reservation {
   id: number;
-  roomId: string;
+  roomId: number;
   startTime: Date;
   endTime: Date;
 }
