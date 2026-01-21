@@ -1,6 +1,6 @@
 import request from "supertest";
 import app from "../app";
-import { reservations } from "../db/inMemoryDb";
+import { reservations } from "../db/reservationsDb";
 import { rooms } from "../db/roomsDb";
 
 describe("Meeting room reservation API", () => {
@@ -10,7 +10,6 @@ describe("Meeting room reservation API", () => {
 
     // Create default room for tests
     await request(app).post("/rooms").send({
-      id: "room-1",
       name: "Apollo",
       capacity: 8,
     });
@@ -18,24 +17,24 @@ describe("Meeting room reservation API", () => {
 
   test("creates a reservation successfully", async () => {
     const response = await request(app).post("/reservations").send({
-      roomId: "room-1",
+      roomId: 1,
       startTime: "2099-01-01T10:00:00Z",
       endTime: "2099-01-01T11:00:00Z",
     });
 
     expect(response.status).toBe(201);
-    expect(response.body.roomId).toBe("room-1");
+    expect(response.body.roomId).toBe(1);
   });
 
   test("rejects overlapping reservations", async () => {
     await request(app).post("/reservations").send({
-      roomId: "room-1",
+      roomId: 1,
       startTime: "2099-01-01T10:00:00Z",
       endTime: "2099-01-01T11:00:00Z",
     });
 
     const response = await request(app).post("/reservations").send({
-      roomId: "room-1",
+      roomId: 1,
       startTime: "2099-01-01T10:30:00Z",
       endTime: "2099-01-01T11:30:00Z",
     });
@@ -45,19 +44,19 @@ describe("Meeting room reservation API", () => {
 
   test("allows same time reservation in different rooms", async () => {
     await request(app).post("/rooms").send({
-      id: "room-2",
+      id: 2,
       name: "Zeus",
       capacity: 6,
     });
 
     await request(app).post("/reservations").send({
-      roomId: "room-1",
+      roomId: 1,
       startTime: "2099-01-01T10:00:00Z",
       endTime: "2099-01-01T11:00:00Z",
     });
 
     const response = await request(app).post("/reservations").send({
-      roomId: "room-2",
+      roomId: 2,
       startTime: "2099-01-01T10:00:00Z",
       endTime: "2099-01-01T11:00:00Z",
     });
@@ -67,7 +66,7 @@ describe("Meeting room reservation API", () => {
 
   test("rejects reservation in the past", async () => {
     const response = await request(app).post("/reservations").send({
-      roomId: "room-1",
+      roomId: 1,
       startTime: "2000-01-01T10:00:00Z",
       endTime: "2000-01-01T11:00:00Z",
     });
@@ -77,7 +76,7 @@ describe("Meeting room reservation API", () => {
 
   test("deletes reservation successfully", async () => {
     const createResponse = await request(app).post("/reservations").send({
-      roomId: "room-1",
+      roomId: 1,
       startTime: "2099-01-01T10:00:00Z",
       endTime: "2099-01-01T11:00:00Z",
     });

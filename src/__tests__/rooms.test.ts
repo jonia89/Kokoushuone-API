@@ -12,20 +12,18 @@ describe("Rooms API", () => {
     const response = await request(app)
       .post("/rooms")
       .send({
-        id: "room-1",
         name: "Neuvotteluhuone Apollo",
         capacity: 8
       });
 
     expect(response.status).toBe(201);
-    expect(response.body.id).toBe("room-1");
+    expect(response.body.id).toBe(1);
   });
 
-  test("rejects duplicate room id", async () => {
+  test("rejects duplicate room", async () => {
     await request(app)
       .post("/rooms")
       .send({
-        id: "room-1",
         name: "Apollo",
         capacity: 6
       });
@@ -33,8 +31,7 @@ describe("Rooms API", () => {
     const response = await request(app)
       .post("/rooms")
       .send({
-        id: "room-1",
-        name: "Apollo Duplicate",
+        name: "Apollo",
         capacity: 10
       });
 
@@ -45,7 +42,6 @@ describe("Rooms API", () => {
     await request(app)
       .post("/rooms")
       .send({
-        id: "room-1",
         name: "Apollo",
         capacity: 8
       });
