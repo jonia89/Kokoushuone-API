@@ -1,6 +1,6 @@
 import express from "express";
-import reservationsRouter from "./routes/reservations";
-import roomsRouter from "./routes/rooms";
+import reservationsRouter from "./controllers/reservations";
+import roomsRouter from "./controllers/rooms";
 
 const app = express();
 
