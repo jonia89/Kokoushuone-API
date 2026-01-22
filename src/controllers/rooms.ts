@@ -1,6 +1,5 @@
 import { Router, Request, Response } from "express";
 import { rooms } from "../db/roomsDb";
-import { reservations } from "../db/reservationsDb";
 import { Room } from "../models/Room";
 
 const roomsRouter = Router();
@@ -23,16 +22,17 @@ roomsRouter.post("/", async (req: Request, res: Response) => {
       return res.status(409).json({ error: "Room already exists" });
     }
 
-    const room: Room = {
+    const newRoom: Room = {
       id: idCounter++,
       name,
       capacity,
+      roomReservations: [],
     };
-    rooms.push(room);
+    rooms.push(newRoom);
 
-    res.status(201).json(room);
+    res.status(201).json(newRoom);
   } catch (error) {
-    return error;
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -41,7 +41,7 @@ roomsRouter.get("/", async (_req: Request, res: Response) => {
   try {
     res.json(rooms);
   } catch (error) {
-    return error;
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -50,28 +50,29 @@ roomsRouter.get("/:id", async (req: Request, res: Response) => {
   try {
     const room = rooms.find((r) => r.id === Number(req.params.id));
 
-    const roomReservations = reservations
-      .filter((r) => r.roomId === Number(req.params.id))
-      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-
     if (!room) {
       return res.status(404).json({ error: "Room not found" });
     }
-    res.json({ ...room, roomReservations });
+
+    res.json(room);
   } catch (error) {
-    return error;
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
 // DELETE /rooms/:id
 roomsRouter.delete("/:id", async (req: Request, res: Response) => {
   try {
-    const room = rooms.find((r) => r.id === Number(req.params.id));
-    if (!room) {
+    const roomId = Number(req.params.id);
+    const roomIndex = rooms.findIndex((r) => r.id === roomId);
+    if (roomIndex === -1) {
       return res.status(404).json({ error: "Room not found" });
     }
+
+    rooms.splice(roomIndex, 1);
+    res.status(204).send();
   } catch (error) {
-    return error;
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
