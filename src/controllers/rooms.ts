@@ -9,8 +9,8 @@ let idCounter = 1;
 roomsRouter.post("/", async (req: Request, res: Response) => {
   try {
     const { name, capacity } = req.body as {
-      name?: string;
-      capacity?: number;
+      name: string;
+      capacity: number;
     };
 
     if (!name || !capacity) {

@@ -10,6 +10,7 @@ let idCounter = 1;
 reservationsRouter.post("/:roomId", async (req: Request, res: Response) => {
   try {
     const roomId = Number(req.params.roomId);
+    const { userId } = req.body.userId;
     const room = rooms.find((r) => r.id === roomId);
 
     if (!room) {
@@ -17,8 +18,8 @@ reservationsRouter.post("/:roomId", async (req: Request, res: Response) => {
     }
 
     const { startTime, endTime } = req.body as {
-      startTime?: Date;
-      endTime?: Date;
+      startTime: Date;
+      endTime: Date;
     };
 
     if (!startTime || !endTime) {
@@ -53,6 +54,7 @@ reservationsRouter.post("/:roomId", async (req: Request, res: Response) => {
 
     const reservation: Reservation = {
       id: idCounter++,
+      userId: userId,
       startTime: start,
       endTime: end,
     };
