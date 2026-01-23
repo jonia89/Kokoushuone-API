@@ -4232,10 +4232,6 @@ Looking at your User interface, here are the best approaches for user control wi
    admin
    });
 
-Copy
-
-Insert at cursor
-typescript 2. Class with Constructor
 export class User {
 constructor(
 public id: number,
@@ -4259,3 +4255,77 @@ return this.user as User;
 }
 
 The factory function is typically the best choice for TypeScript as it's simple, functional, and works well with your existing interface. It ensures admin defaults to false while keeping your code minimal and type-safe.
+
+Minä:
+is it better to use idCounter instead of users length or modify tests?
+
+Claude:
+Use idCounter and modify the tests - it's the better approach for these reasons:
+
+Real-world behavior - In production, IDs should be unique and never reused, even after deletions
+
+Data integrity - Using array length can cause ID conflicts if users are deleted
+
+Database simulation - Most databases use auto-incrementing IDs that don't reset
+
+Fix the tests by exporting and resetting the counter:
+
+In users.ts:
+
+export let idCounter = 1;
+export const resetIdCounter = () => { idCounter = 1; };
+
+In your test:
+
+import { resetIdCounter } from "../controllers/users";
+
+beforeEach(async () => {
+rooms.length = 0;
+users.length = 0;
+resetIdCounter();
+});
+
+This maintains proper ID behavior while making tests predictable. Using users.length + 1 would break if you ever delete users, causing potential ID collisions.
+
+Minä:
+why rooms dont have same problem?
+
+Claude:
+Rooms do have the same problem - they also use an idCounter on line 6 that doesn't get reset.
+
+Let me check if you have room tests to see if this issue shows up there:
+
+1 file read
+rooms.test.ts
+The rooms tests don't show this problem because:
+Only one test expects id: 1 (line 15) - the first test
+Other tests don't check specific IDs - they use the returned ID from creation or don't care about the ID value
+Tests that create multiple rooms expect different IDs (like the delete test creates rooms with ids 1 and 2)
+Your users tests fail because both tests expect id: 1, but rooms tests are written more realistically - they either don't care about the specific ID or expect incrementing IDs.
+Both controllers have the same issue, but only your users tests expose it due to the unrealistic expectation that both users should have id: 1.
+
+Minä:
+okey that explains it, in user test i create 2 users, one without and one with admin rights
+
+Claude:
+Context
+Exactly! You've identified the issue perfectly.
+
+In your users tests, you create 2 separate users in 2 separate tests, but both expect id: 1. That's unrealistic because:
+Test 1: Creates user → gets id: 1 ✅
+Test 2: Creates user → gets id: 2 (counter continued) ❌ but expects id: 1
+In your rooms tests, it's written more realistically:
+Test 1: Creates room → expects id: 1 ✅
+Other tests: Either don't check specific IDs or expect incrementing IDs
+
+Fix your users test by changing the second test expectation:
+
+test("Create user with admin rights succesfully", async () => {
+const response = await request(app).post("/users").send(USERS[1]);
+
+expect(response.status).toBe(201);
+expect(response.body.admin).toBe(true);
+expect(response.body.id).toEqual(2); // Should be 2, not 1
+});
+
+This matches real-world behavior where IDs increment and are never reused.

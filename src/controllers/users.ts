@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { users } from "../db/usersDb";
 import { rooms } from "../db/roomsDb";
-import { User, createUser } from "../models/User";
+import { createUser } from "../models/User";
 
 const usersRouter = Router();
 let idCounter = 1;
@@ -9,8 +9,9 @@ let idCounter = 1;
 // POST /users
 usersRouter.post("/", async (req: Request, res: Response) => {
   try {
-    const { name } = req.body as {
+    const { name, admin } = req.body as {
       name: string;
+      admin: boolean;
     };
 
     if (!name) {
@@ -20,9 +21,26 @@ usersRouter.post("/", async (req: Request, res: Response) => {
     if (exists) {
       return res.status(409).json({ error: "User already exists" });
     }
-    const newUser = createUser(idCounter++, name);
+    const newUser = createUser(idCounter++, name, admin);
     users.push(newUser);
     res.status(201).json(newUser);
+  } catch (error) {
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /users/:id
+usersRouter.get("/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = Number(req.params.id);
+    const userData = users.find((u) => (u.id = userId));
+    const reservations = rooms.flatMap((r) =>
+      r.roomReservations.filter((reservation) => reservation.userId === userId),
+    );
+    if (!reservations) {
+      return res.status(404).json({ error: "No reservations" });
+    }
+    res.json({ ...userData, reservations });
   } catch (error) {
     return res.status(500).json({ error: "Internal server error" });
   }

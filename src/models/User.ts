@@ -3,7 +3,7 @@ export interface User {
   name: string;
   admin: boolean;
 }
-
+// Käyttäjällä ei ole oletusarvoisesti ylläpitäjän oikeuksia
 export const createUser = (
   id: number,
   name: string,
