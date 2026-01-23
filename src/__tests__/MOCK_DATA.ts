@@ -12,8 +12,8 @@ const ROOMS = [
     capacity: 6,
   },
 ];
-// 0 & 1 are overlapping
-// 4 is in past
+// 0 & 1 overlapping!
+// 4 on menneisyydessä
 const RESERVATIONS = [
   {
     userId: 1,
@@ -47,6 +47,14 @@ const RESERVATIONS = [
   },
 ];
 
-const USERS = [{}, {}, {}];
+const USERS = [
+  {
+    name: "Vesa Varaaja",
+  },
+  {
+    name: "Jonne Johtaja",
+    admin: true,
+  },
+];
 
 export { ROOMS, RESERVATIONS, USERS };
