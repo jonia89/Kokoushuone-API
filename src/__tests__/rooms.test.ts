@@ -38,7 +38,7 @@ describe("Rooms API", () => {
     const createResponse = await request(app).post("/rooms").send(ROOMS[0]);
     const roomId = createResponse.body.id;
     await request(app).post(`/reservations/${roomId}`).send(RESERVATIONS[0]);
-    await request(app).post(`/reservations/${roomId}`).send(RESERVATIONS[5]);
+    await request(app).post(`/reservations/${roomId}`).send(RESERVATIONS[2]);
 
     const response = await request(app).get(`/rooms/${roomId}`);
 
@@ -54,10 +54,10 @@ describe("Rooms API", () => {
     const secondRoomId = secondRoomRes.body.id;
     await request(app)
       .post(`/reservations/${secondRoomId}`)
-      .send(RESERVATIONS[2]); // roomId = 2
+      .send(RESERVATIONS[0]); // roomId = 2
     await request(app)
       .post(`/reservations/${secondRoomId}`)
-      .send(RESERVATIONS[3]); // roomId = 2
+      .send(RESERVATIONS[2]); // roomId = 2
     await request(app)
       .post(`/reservations/${firstRoomId}`)
       .send(RESERVATIONS[0]); // roomId = 1

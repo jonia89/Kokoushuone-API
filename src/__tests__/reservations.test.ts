@@ -44,7 +44,7 @@ describe("Meeting room reservation API", () => {
 
     const response = await request(app)
       .post(`/reservations/${newRoom.body.id}`)
-      .send(RESERVATIONS[2]);
+      .send(RESERVATIONS[0]);
 
     expect(response.status).toBe(201);
   });
@@ -52,7 +52,7 @@ describe("Meeting room reservation API", () => {
   test("rejects reservation in the past", async () => {
     const response = await request(app)
       .post(`/reservations/${defaultRoomId}`)
-      .send(RESERVATIONS[4]);
+      .send(RESERVATIONS[3]);
 
     expect(response.status).toBe(400);
   });

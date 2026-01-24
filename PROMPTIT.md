@@ -3572,6 +3572,7 @@ Haluatko, että teen sen?
 
 Minä:
 sitten siivotaan testit, ensin varauksien testit:
+```ts
 import request from "supertest";
 import app from "../app";
 import { rooms } from "../db/roomsDb";
@@ -3645,7 +3646,7 @@ const createResponse = await request(app)
 
 });
 });
-
+```
 ChatGPT:
 Okei, nyt kun `roomId` ei enää ole `Reservation`-objektissa ja POST /reservations toimii URL-parametrilla `/reservations/:roomId`, testit täytyy siivota ja muokata vastaamaan uutta logiikkaa.
 
@@ -3992,6 +3993,7 @@ Haluatko, että teen sen?
 
 Minä:
 sitten huoneiden testit:
+```ts
 import request from "supertest";
 import app from "../app";
 import { rooms } from "../db/roomsDb";
@@ -4065,7 +4067,7 @@ await request(app).post("/rooms").send(ROOMS[0]); // id = 1
 
 });
 });
-
+```
 FAIL src/**tests**/rooms.test.ts
 ● Rooms API › lists reservations of room
 
@@ -4226,33 +4228,53 @@ Context
 Looking at your User interface, here are the best approaches for user control with admin defaulting to False:
 
 1. Factory Function (Recommended)
-   export const createUser = (id: number, name: string, admin: boolean = false): User => ({
-   id,
-   name,
-   admin
-   });
+
+```ts
+export const createUser = (
+  id: number,
+  name: string,
+  admin: boolean = false,
+): User => ({
+  id,
+  name,
+  admin,
+});
 
 export class User {
-constructor(
-public id: number,
-public name: string,
-public admin: boolean = false
-) {}
+  constructor(
+    public id: number,
+    public name: string,
+    public admin: boolean = false,
+  ) {}
 }
+```
 
 3. Builder Pattern
-   export class UserBuilder {
-   private user: Partial<User> = { admin: false };
 
-id(id: number) { this.user.id = id; return this; }
-name(name: string) { this.user.name = name; return this; }
-admin(admin: boolean = true) { this.user.admin = admin; return this; }
+```ts
+export class UserBuilder {
+  private user: Partial<User> = { admin: false };
 
-build(): User {
-if (!this.user.id || !this.user.name) throw new Error('Missing required fields');
-return this.user as User;
+  id(id: number) {
+    this.user.id = id;
+    return this;
+  }
+  name(name: string) {
+    this.user.name = name;
+    return this;
+  }
+  admin(admin: boolean = true) {
+    this.user.admin = admin;
+    return this;
+  }
+
+  build(): User {
+    if (!this.user.id || !this.user.name)
+      throw new Error("Missing required fields");
+    return this.user as User;
+  }
 }
-}
+```
 
 The factory function is typically the best choice for TypeScript as it's simple, functional, and works well with your existing interface. It ensures admin defaults to false while keeping your code minimal and type-safe.
 
@@ -4272,6 +4294,7 @@ Fix the tests by exporting and resetting the counter:
 
 In users.ts:
 
+```ts
 export let idCounter = 1;
 export const resetIdCounter = () => { idCounter = 1; };
 
@@ -4284,6 +4307,7 @@ rooms.length = 0;
 users.length = 0;
 resetIdCounter();
 });
+```
 
 This maintains proper ID behavior while making tests predictable. Using users.length + 1 would break if you ever delete users, causing potential ID collisions.
 
@@ -4320,12 +4344,82 @@ Other tests: Either don't check specific IDs or expect incrementing IDs
 
 Fix your users test by changing the second test expectation:
 
+```ts
 test("Create user with admin rights succesfully", async () => {
-const response = await request(app).post("/users").send(USERS[1]);
+  const response = await request(app).post("/users").send(USERS[1]);
 
-expect(response.status).toBe(201);
-expect(response.body.admin).toBe(true);
-expect(response.body.id).toEqual(2); // Should be 2, not 1
+  expect(response.status).toBe(201);
+  expect(response.body.admin).toBe(true);
+  expect(response.body.id).toEqual(2); // Should be 2, not 1
 });
+```
 
 This matches real-world behavior where IDs increment and are never reused.
+
+Minä:
+{ id: 4, name: 'Vesa Varaaja', admin: false, reservations: [] }
+resservations should go to user with id 4
+
+Claude:
+Context
+The issue is in your users controller's GET endpoint. Looking at the console output, the user has id: 4 but no reservations are being found. Let me check the users controller:
+
+1 file read
+users.ts
+Found two bugs in the GET /users/:id endpoint:
+
+Line 35: u.id = userId should be u.id === userId (assignment instead of comparison)
+
+Line 39: Wrong condition - it returns 404 when reservations array exists but is empty
+
+Fix:
+
+// GET /users/:id
+
+```ts
+usersRouter.get("/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = Number(req.params.id);
+    const userData = users.find((u) => u.id === userId); // Fix: === not =
+    const reservations = rooms.flatMap((r) =>
+      r.roomReservations.filter((reservation) => reservation.userId === userId),
+    );
+    if (!userData) {
+      // Fix: check if user exists, not reservations
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json({ ...userData, reservations });
+  } catch (error) {
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+```
+
+The assignment bug was setting every user's ID to the searched ID, and the condition bug was rejecting valid responses with empty reservation arrays.
+
+Minä:
+still no reservations
+
+Claude:
+Context
+Let me check your reservations controller to see how reservations are being created and stored:
+
+1 file read
+reservations.ts
+Found the bug! On line 13 in reservations controller:
+```ts
+const { userId } = req.body.userId; // Wrong - this extracts undefined
+```
+Should be:
+```ts
+const { userId } = req.body; // Correct - extracts userId from body
+```
+The current code is trying to destructure userId from req.body.userId instead of from req.body, so userId becomes undefined. This means reservations are being created with userId: undefined, so they never match when filtering by the actual user ID.
+
+Fix line 13:
+
+```ts
+const { userId } = req.body;
+```
+
+This will properly extract the userId from the request body and your reservations will be linked to the correct user.
