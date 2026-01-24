@@ -2,7 +2,7 @@ import request from "supertest";
 import app from "../app";
 import { rooms } from "../db/roomsDb";
 import { users } from "../db/usersDb";
-import { USERS } from "./MOCK_DATA";
+import { USERS, ROOMS, RESERVATIONS } from "./MOCK_DATA";
 
 describe("Users API", () => {
   beforeEach(async () => {
@@ -32,5 +32,35 @@ describe("Users API", () => {
       .post("/users")
       .send({ name: "Vesa Varaaja" });
     expect(response.status).toBe(409);
+  });
+
+  test("Lists reservations of user", async () => {
+    const user = await request(app).post("/users").send(USERS[0]);
+    const userId = user.body.id;
+    const room = await request(app).post("/rooms").send(ROOMS[0]);
+    const roomId = room.body.id;
+    await request(app).post(`/reservations/${roomId}`).send({
+      userId: userId,
+      startTime: RESERVATIONS[0].startTime,
+      endTime: RESERVATIONS[0].endTime,
+    });
+    await request(app).post(`/reservations/${roomId}`).send({
+      userId: userId,
+      startTime: RESERVATIONS[2].startTime,
+      endTime: RESERVATIONS[2].endTime,
+    });
+    const response = await request(app).get(`/users/${userId}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.reservations).toHaveLength(2);
+    expect(response.body.id).toEqual(userId);
+  });
+
+  test("Deletes user succesfully", async () => {
+    const user = await request(app).post("/users").send(USERS[0]);
+    const userId = user.body.id;
+    const response = await request(app).delete(`/users/${userId}`);
+
+    expect(response.status).toBe(204);
   });
 });
