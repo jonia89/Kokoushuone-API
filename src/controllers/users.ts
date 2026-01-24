@@ -33,11 +33,11 @@ usersRouter.post("/", async (req: Request, res: Response) => {
 usersRouter.get("/:id", async (req: Request, res: Response) => {
   try {
     const userId = Number(req.params.id);
-    const userData = users.find((u) => (u.id = userId));
+    const userData = users.find((u) => (u.id === userId));
     const reservations = rooms.flatMap((r) =>
       r.roomReservations.filter((reservation) => reservation.userId === userId),
     );
-    if (!reservations) {
+    if (!userData) {
       return res.status(404).json({ error: "No reservations" });
     }
     res.json({ ...userData, reservations });

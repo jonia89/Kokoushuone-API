@@ -10,7 +10,7 @@ let idCounter = 1;
 reservationsRouter.post("/:roomId", async (req: Request, res: Response) => {
   try {
     const roomId = Number(req.params.roomId);
-    const { userId } = req.body.userId;
+    const { userId } = req.body;
     const room = rooms.find((r) => r.id === roomId);
 
     if (!room) {
