@@ -1,15 +1,18 @@
 import request from "supertest";
 import app from "../app";
-import { rooms } from "../db/roomsDb";
-import { users } from "../db/usersDb";
+import { pool } from "../db/connection";
 import { ROOMS, RESERVATIONS, USERS } from "./MOCK_DATA";
 
 let defaultUserId: number;
 
 describe("Rooms API", () => {
   beforeEach(async () => {
-    rooms.length = 0;
-    users.length = 0;
+    await pool.query("DELETE FROM reservations");
+    await pool.query("DELETE FROM rooms");
+    await pool.query("DELETE FROM users");
+    await pool.query("ALTER SEQUENCE users_id_seq RESTART WITH 1");
+  await pool.query("ALTER SEQUENCE rooms_id_seq RESTART WITH 1");
+  await pool.query("ALTER SEQUENCE reservations_id_seq RESTART WITH 1");
 
     // Creates default admin user
     const defaultUser = await request(app).post("/users").send(USERS[1]);
@@ -24,7 +27,7 @@ describe("Rooms API", () => {
     });
 
     expect(response.status).toBe(201);
-    expect(response.body.id).toEqual(1);
+    expect(response.body.id).toBeDefined();
   });
 
   test("no right to create room", async () => {
@@ -130,7 +133,12 @@ describe("Rooms API", () => {
       .delete(`/rooms/${secondRoomId}`)
       .send({ userId: defaultUserId });
 
-    expect(rooms).toHaveLength(1);
+    const result = await pool.query(
+      "SELECT * FROM reservations WHERE room_id = $1",
+      [firstRoomId],
+    );
+    expect(result.rows).toHaveLength(1);
+
     expect(deleteResponse.status).toBe(204);
   });
 

@@ -1,7 +1,6 @@
 import request from "supertest";
 import app from "../app";
-import { rooms } from "../db/roomsDb";
-import { users } from "../db/usersDb";
+import { pool } from "../db/connection";
 import { ROOMS, RESERVATIONS, USERS } from "./MOCK_DATA";
 
 let defaultRoomId: number;
@@ -9,8 +8,12 @@ let defaultUserId: number;
 
 describe("Reservations API", () => {
   beforeEach(async () => {
-    rooms.length = 0;
-    users.length = 0;
+    await pool.query("DELETE FROM reservations");
+    await pool.query("DELETE FROM rooms");
+    await pool.query("DELETE FROM users");
+    await pool.query("ALTER SEQUENCE users_id_seq RESTART WITH 1");
+  await pool.query("ALTER SEQUENCE rooms_id_seq RESTART WITH 1");
+  await pool.query("ALTER SEQUENCE reservations_id_seq RESTART WITH 1");
     // Create default room for tests
     const defaultUser = await request(app).post("/users").send(USERS[1]);
     defaultUserId = defaultUser.body.id;
@@ -105,7 +108,10 @@ describe("Reservations API", () => {
     );
 
     expect(deleteResponse.status).toBe(204);
-    const room = rooms.find((r) => r.id === defaultRoomId);
-    expect(room?.roomReservations).toHaveLength(0);
+    const result = await pool.query(
+      "SELECT * FROM reservations WHERE room_id = $1",
+      [defaultRoomId],
+    );
+    expect(result.rows).toHaveLength(0);
   });
 });

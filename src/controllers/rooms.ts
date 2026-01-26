@@ -1,10 +1,15 @@
 import { Router, Request, Response } from "express";
-import { rooms } from "../db/roomsDb";
-import { Room } from "../models/Room";
+import {
+  createRoom,
+  roomExists,
+  getAllRooms,
+  getRoomById,
+  deleteRoom,
+} from "../db/roomsDb";
+import { getUserById } from "../db/usersDb";
 import { isAdmin } from "../utils/isAdmin";
 
 const roomsRouter = Router();
-let idCounter = 1;
 
 // POST /rooms
 roomsRouter.post("/", async (req: Request, res: Response) => {
@@ -14,7 +19,7 @@ roomsRouter.post("/", async (req: Request, res: Response) => {
       name: string;
       capacity: number;
     };
-    if (!isAdmin(userId)) {
+    if (!(await isAdmin(userId))) {
       return res.status(403).json({ error: "No rights to add room" });
     }
 
@@ -28,20 +33,12 @@ roomsRouter.post("/", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Valid capacity is required" });
     }
 
-    const exists = rooms.find((r) => r.name === name);
+    const exists = await roomExists(name);
     if (exists) {
       return res.status(409).json({ error: "Room already exists" });
     }
 
-    const newRoom: Room = {
-      id: idCounter++,
-      userId: userId,
-      name,
-      capacity,
-      roomReservations: [],
-    };
-    rooms.push(newRoom);
-
+    const newRoom = await createRoom(userId, name, capacity);
     res.status(201).json(newRoom);
   } catch (error) {
     return res.status(500).json({ error: "Internal server error" });
@@ -51,6 +48,7 @@ roomsRouter.post("/", async (req: Request, res: Response) => {
 // GET /rooms
 roomsRouter.get("/", async (_req: Request, res: Response) => {
   try {
+    const rooms = await getAllRooms();
     res.json(rooms);
   } catch (error) {
     return res.status(500).json({ error: "Internal server error" });
@@ -60,7 +58,7 @@ roomsRouter.get("/", async (_req: Request, res: Response) => {
 // GET /rooms/:id
 roomsRouter.get("/:id", async (req: Request, res: Response) => {
   try {
-    const room = rooms.find((r) => r.id === Number(req.params.id));
+    const room = await getRoomById(Number(req.params.id));
 
     if (!room) {
       return res.status(404).json({ error: "Room not found" });
@@ -77,7 +75,7 @@ roomsRouter.delete("/:id", async (req: Request, res: Response) => {
   try {
     const { userId } = req.body as { userId: number };
 
-    if (!isAdmin(userId)) {
+    if (!(await isAdmin(userId))) {
       return res.status(403).json({ error: "No rights to delete room" });
     }
 
@@ -90,12 +88,11 @@ roomsRouter.delete("/:id", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Invalid room ID" });
     }
 
-    const roomIndex = rooms.findIndex((r) => r.id === roomId);
-    if (roomIndex === -1) {
+    const deleted = await deleteRoom(roomId);
+
+    if (!deleted) {
       return res.status(404).json({ error: "Room not found" });
     }
-
-    rooms.splice(roomIndex, 1);
     res.status(204).send();
   } catch (error) {
     return res.status(500).json({ error: "Internal server error" });

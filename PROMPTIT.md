@@ -4561,3 +4561,326 @@ Modulaarinen arkkitehtuuri
 Express.js REST API
 
 Projektisi on hyvin toteutettu ja täyttää kaikki vaatimukset sekä noudattaa hyviä ohjelmointikäytäntöjä!
+
+Minä:
+what would be the best way to set this project use postgreSQL database instead of in-memory database?
+
+Claude:
+I'll help you understand how to switch from an in-memory database to PostgreSQL. First, let me examine your project structure to see the current database configuration.
+
+1 directory listed
+kokoushuoneiden_varausrajapinta
+Let me examine the current database setup and configuration files:
+
+4 files read
+package.json
+roomsDb.ts
+usersDb.ts
+app.ts
+Now let me check the models to understand the data structure:
+
+3 files read
+Room.ts
+User.ts
+Reservation.ts
+Based on your current project structure, here's the best approach to switch from in-memory arrays to PostgreSQL:
+
+1. Add PostgreSQL Dependencies
+Add these packages to your project:
+
+npm install pg
+npm install --save-dev @types/pg
+
+Copy
+
+Insert at cursor
+bash
+2. Database Setup Approach
+You have two main options:
+
+Option A: Raw SQL with pg library (simpler, more control)
+
+Direct SQL queries
+
+Manual connection management
+
+Good for learning SQL
+
+Option B: ORM like Prisma or TypeORM (more features, less boilerplate)
+
+Type-safe database operations
+
+Automatic migrations
+
+Better for larger projects
+
+3. Recommended Implementation Steps
+For Option A (Raw SQL):
+
+Create database connection module (src/db/connection.ts)
+
+Create SQL migration scripts for tables
+
+Replace array operations in roomsDb.ts and usersDb.ts with SQL queries
+
+Update controllers to handle async database operations
+
+For Option B (Prisma):
+
+Install Prisma: npm install prisma @prisma/client
+
+Initialize Prisma: npx prisma init
+
+Define schema in prisma/schema.prisma
+
+Generate client and run migrations
+
+Replace array operations with Prisma client calls
+
+4. Database Schema
+You'll need these tables:
+
+users (id, name, admin)
+
+rooms (id, user_id, name, capacity)
+
+reservations (id, user_id, room_id, start_time, end_time)
+
+5. Key Changes Required
+Make all database operations async/await
+
+Update controllers to handle Promise-based operations
+
+Add error handling for database connections
+
+Update tests to use test database or mocks
+
+Would you prefer to go with raw SQL (pg) or an ORM like Prisma? I can provide specific implementation details once you choose your preferred approach.
+
+Minä:
+lets go with raw sql
+
+Claude:
+I'll help you implement PostgreSQL with raw SQL. Let me start by showing you the minimal changes needed.
+
+1. Install Dependencies
+First, add PostgreSQL dependencies:
+
+npm install pg
+npm install --save-dev @types/pg
+
+2. Create Database Connection
+1 file read
+rooms.ts
+Now I'll create the minimal implementation. Here are the key files you need to create/modify:
+
+3. Database Connection (src/db/connection.ts)
+```ts
+import { Pool } from 'pg';
+
+export const pool = new Pool({
+  user: process.env.DB_USER || 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  database: process.env.DB_NAME || 'kokoushuoneet',
+  password: process.env.DB_PASSWORD || 'password',
+  port: parseInt(process.env.DB_PORT || '5432'),
+});
+```
+4. SQL Schema (schema.sql)
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  admin BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE rooms (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  name VARCHAR(255) UNIQUE NOT NULL,
+  capacity INTEGER NOT NULL CHECK (capacity > 0)
+);
+
+CREATE TABLE reservations (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  room_id INTEGER REFERENCES rooms(id),
+  start_time TIMESTAMP NOT NULL,
+  end_time TIMESTAMP NOT NULL
+);
+```
+
+5. Replace Database Files
+src/db/roomsDb.ts:
+```ts
+import { pool } from './connection';
+import { Room } from '../models/Room';
+
+export const createRoom = async (userId: number, name: string, capacity: number): Promise<Room> => {
+  const result = await pool.query(
+    'INSERT INTO rooms (user_id, name, capacity) VALUES ($1, $2, $3) RETURNING *',
+    [userId, name, capacity]
+  );
+  const room = result.rows[0];
+  return {
+    id: room.id,
+    userId: room.user_id,
+    name: room.name,
+    capacity: room.capacity,
+    roomReservations: []
+  };
+};
+
+export const getAllRooms = async (): Promise<Room[]> => {
+  const result = await pool.query('SELECT * FROM rooms');
+  return result.rows.map(row => ({
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    capacity: row.capacity,
+    roomReservations: []
+  }));
+};
+
+export const getRoomById = async (id: number): Promise<Room | null> => {
+  const result = await pool.query('SELECT * FROM rooms WHERE id = $1', [id]);
+  if (result.rows.length === 0) return null;
+  
+  const room = result.rows[0];
+  return {
+    id: room.id,
+    userId: room.user_id,
+    name: room.name,
+    capacity: room.capacity,
+    roomReservations: []
+  };
+};
+
+export const deleteRoom = async (id: number): Promise<boolean> => {
+  const result = await pool.query('DELETE FROM rooms WHERE id = $1', [id]);
+  return result.rowCount > 0;
+};
+
+export const roomExists = async (name: string): Promise<boolean> => {
+  const result = await pool.query('SELECT 1 FROM rooms WHERE name = $1', [name]);
+  return result.rows.length > 0;
+};
+```
+src/db/usersDb.ts:
+```ts
+import { pool } from './connection';
+import { User } from '../models/User';
+
+export const getUserById = async (id: number): Promise<User | null> => {
+  const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+  if (result.rows.length === 0) return null;
+  
+  const user = result.rows[0];
+  return {
+    id: user.id,
+    name: user.name,
+    admin: user.admin
+  };
+};
+
+export const createUser = async (name: string, admin: boolean = false): Promise<User> => {
+  const result = await pool.query(
+    'INSERT INTO users (name, admin) VALUES ($1, $2) RETURNING *',
+    [name, admin]
+  );
+  const user = result.rows[0];
+  return {
+    id: user.id,
+    name: user.name,
+    admin: user.admin
+  };
+};
+
+```
+6. Update Controllers
+The controllers need minimal changes - just replace array operations with database calls:
+
+Key changes in src/controllers/rooms.ts:
+
+Replace rooms.find() with getRoomById()
+
+Replace rooms.push() with createRoom()
+
+Replace rooms with getAllRooms()
+
+Replace rooms.splice() with deleteRoom()
+
+7. Environment Variables
+Create .env file:
+
+DB_USER=postgres
+DB_HOST=localhost
+DB_NAME=kokoushuoneet
+DB_PASSWORD=your_password
+DB_PORT=5432
+
+Next Steps
+Install dependencies
+
+Set up PostgreSQL database
+
+Run the schema.sql
+
+Update controllers to use the new database functions
+
+Update utils/isAdmin.ts to use getUserById()
+
+Would you like me to show you the updated controller implementations or help with any specific part?
+
+Minä:
+you forgot reservationsDb
+
+Claude:
+You're right! Let me complete the reservationsDb.ts file with the minimal functions needed:
+```ts
+export const createReservation = async (userId: number, roomId: number, startTime: Date, endTime: Date): Promise<Reservation> => {
+  const result = await pool.query(
+    'INSERT INTO reservations (user_id, room_id, start_time, end_time) VALUES ($1, $2, $3, $4) RETURNING *',
+    [userId, roomId, startTime, endTime]
+  );
+  const reservation = result.rows[0];
+  return {
+    id: reservation.id,
+    userId: reservation.user_id,
+    roomId: reservation.room_id,
+    startTime: reservation.start_time,
+    endTime: reservation.end_time
+  };
+};
+
+export const getReservationsByRoom = async (roomId: number): Promise<Reservation[]> => {
+  const result = await pool.query('SELECT * FROM reservations WHERE room_id = $1', [roomId]);
+  return result.rows.map(row => ({
+    id: row.id,
+    userId: row.user_id,
+    roomId: row.room_id,
+    startTime: row.start_time,
+    endTime: row.end_time
+  }));
+};
+
+export const deleteReservation = async (id: number): Promise<boolean> => {
+  const result = await pool.query('DELETE FROM reservations WHERE id = $1', [id]);
+  return result.rowCount > 0;
+};
+
+export const getOverlappingReservations = async (roomId: number, startTime: Date, endTime: Date): Promise<Reservation[]> => {
+  const result = await pool.query(
+    'SELECT * FROM reservations WHERE room_id = $1 AND start_time < $3 AND end_time > $2',
+    [roomId, startTime, endTime]
+  );
+  return result.rows.map(row => ({
+    id: row.id,
+    userId: row.user_id,
+    roomId: row.room_id,
+    startTime: row.start_time,
+    endTime: row.end_time
+  }));
+};
+```
+Note: I noticed your Reservation model might need a roomId field added since reservations need to be linked to rooms in the database.

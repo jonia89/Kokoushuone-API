@@ -1,10 +1,12 @@
 import { Router, Request, Response } from "express";
-import { rooms } from "../db/roomsDb";
-import { Reservation } from "../models/Reservation";
-import { isOverlapping } from "../utils/isOverlapping";
+import {
+  createReservation,
+  deleteReservation,
+  getOverlappingReservations,
+} from "../db/reservationsDb";
+import { getRoomById } from "../db/roomsDb";
 
 const reservationsRouter = Router();
-let idCounter = 1;
 
 // POST /reservations
 reservationsRouter.post("/:roomId", async (req: Request, res: Response) => {
@@ -14,7 +16,7 @@ reservationsRouter.post("/:roomId", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Invalid room ID" });
     }
 
-    const room = rooms.find((r) => r.id === roomId);
+    const room = await getRoomById(roomId);
 
     if (!room) {
       return res.status(404).json({ error: "Room not found" });
@@ -46,25 +48,16 @@ reservationsRouter.post("/:roomId", async (req: Request, res: Response) => {
       });
     }
 
-    const overlapping = room.roomReservations.some((r) =>
-      isOverlapping(start, end, r.startTime, r.endTime),
-    );
+    const overlapping = await getOverlappingReservations(roomId, start, end);
 
-    if (overlapping) {
+    if (overlapping.length > 0) {
       return res.status(409).json({
         error: "Room already booked for this time",
       });
     }
 
-    const reservation: Reservation = {
-      id: idCounter++,
-      userId: userId,
-      startTime: start,
-      endTime: end,
-    };
-
-    room.roomReservations.push(reservation);
-    res.status(201).json({ ...reservation, roomId });
+    const reservation = await createReservation(userId, roomId, start, end);
+    res.status(201).json(reservation);
   } catch (error) {
     return res.status(500).json({ error: "Internal server error" });
   }
@@ -77,17 +70,8 @@ reservationsRouter.delete("/:id", async (req: Request, res: Response) => {
     if (isNaN(reservationId)) {
       return res.status(400).json({ error: "Invalid reservation ID" });
     }
-    let deleted = false;
-    for (const room of rooms) {
-      const index = room.roomReservations.findIndex(
-        (r) => r.id === reservationId,
-      );
-      if (index !== -1) {
-        room.roomReservations.splice(index, 1);
-        deleted = true;
-        break;
-      }
-    }
+    const deleted = await deleteReservation(reservationId);
+
     if (!deleted) {
       return res.status(404).json({ error: "Reservation not found" });
     }

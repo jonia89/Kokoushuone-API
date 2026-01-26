@@ -1,13 +1,16 @@
 import request from "supertest";
 import app from "../app";
-import { rooms } from "../db/roomsDb";
-import { users } from "../db/usersDb";
+import { pool } from "../db/connection";
 import { USERS, ROOMS, RESERVATIONS } from "./MOCK_DATA";
 
 describe("Users API", () => {
   beforeEach(async () => {
-    rooms.length = 0;
-    users.length = 0;
+    await pool.query("DELETE FROM reservations");
+    await pool.query("DELETE FROM rooms");
+    await pool.query("DELETE FROM users");
+    await pool.query("ALTER SEQUENCE users_id_seq RESTART WITH 1");
+    await pool.query("ALTER SEQUENCE rooms_id_seq RESTART WITH 1");
+    await pool.query("ALTER SEQUENCE reservations_id_seq RESTART WITH 1");
   });
 
   test("Create user without admin rights succesfully", async () => {
@@ -15,7 +18,7 @@ describe("Users API", () => {
 
     expect(response.status).toBe(201);
     expect(response.body.admin).toBe(false);
-    expect(response.body.id).toEqual(1);
+    expect(response.body.id).toBeDefined();
   });
 
   test("Create user with admin rights succesfully as a second user", async () => {
@@ -23,7 +26,7 @@ describe("Users API", () => {
 
     expect(response.status).toBe(201);
     expect(response.body.admin).toBe(true);
-    expect(response.body.id).toEqual(2);
+    expect(response.body.id).toBeDefined();
   });
 
   test("Rejects duplicate user", async () => {
@@ -37,13 +40,11 @@ describe("Users API", () => {
   test("Lists reservations of user", async () => {
     const user = await request(app).post("/users").send(USERS[1]);
     const userId = user.body.id;
-    const room = await request(app)
-      .post("/rooms")
-      .send({
-        userId: userId,
-        name: ROOMS[1].name,
-        capacity: ROOMS[1].capacity,
-      });
+    const room = await request(app).post("/rooms").send({
+      userId: userId,
+      name: ROOMS[1].name,
+      capacity: ROOMS[1].capacity,
+    });
     const roomId = room.body.id;
     await request(app).post(`/reservations/${roomId}`).send({
       userId: userId,

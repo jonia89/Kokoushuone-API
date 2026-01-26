@@ -1,9 +1,6 @@
-import { users } from "../db/usersDb";
+import { getUserById } from "../db/usersDb";
 
-export function isAdmin(userId: number): boolean {
-  const user = users.find((u) => u.id === userId);
-  if (user) {
-    return user.admin;
-  }
-  return false;
+export async function isAdmin(userId: number): Promise<boolean> {
+  const user = await getUserById(userId);
+  return user?.admin || false;
 }
