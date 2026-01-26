@@ -4,7 +4,7 @@ import { rooms } from "../db/roomsDb";
 import { users } from "../db/usersDb";
 import { ROOMS, RESERVATIONS, USERS } from "./MOCK_DATA";
 
-let defaultUserId: Number;
+let defaultUserId: number;
 
 describe("Rooms API", () => {
   beforeEach(async () => {

@@ -4,8 +4,8 @@ import { rooms } from "../db/roomsDb";
 import { users } from "../db/usersDb";
 import { ROOMS, RESERVATIONS, USERS } from "./MOCK_DATA";
 
-let defaultRoomId: Number;
-let defaultUserId: Number;
+let defaultRoomId: number;
+let defaultUserId: number;
 
 describe("Reservations API", () => {
   beforeEach(async () => {
@@ -54,13 +54,11 @@ describe("Reservations API", () => {
   });
 
   test("allows same time reservation in different rooms", async () => {
-    const newRoom = await request(app)
-      .post("/rooms")
-      .send({
-        userId: defaultUserId,
-        name: ROOMS[1].name,
-        capacity: ROOMS[1].capacity,
-      });
+    const newRoom = await request(app).post("/rooms").send({
+      userId: defaultUserId,
+      name: ROOMS[1].name,
+      capacity: ROOMS[1].capacity,
+    });
 
     await request(app).post(`/reservations/${defaultRoomId}`).send({
       userId: defaultUserId,
