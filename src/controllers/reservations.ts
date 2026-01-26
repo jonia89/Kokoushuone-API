@@ -10,14 +10,18 @@ let idCounter = 1;
 reservationsRouter.post("/:roomId", async (req: Request, res: Response) => {
   try {
     const roomId = Number(req.params.roomId);
-    const { userId } = req.body;
+    if (isNaN(roomId)) {
+      return res.status(400).json({ error: "Invalid room ID" });
+    }
+
     const room = rooms.find((r) => r.id === roomId);
 
     if (!room) {
       return res.status(404).json({ error: "Room not found" });
     }
 
-    const { startTime, endTime } = req.body as {
+    const { userId, startTime, endTime } = req.body as {
+      userId: number;
       startTime: Date;
       endTime: Date;
     };
@@ -70,6 +74,9 @@ reservationsRouter.post("/:roomId", async (req: Request, res: Response) => {
 reservationsRouter.delete("/:id", async (req: Request, res: Response) => {
   try {
     const reservationId = Number(req.params.id);
+    if (isNaN(reservationId)) {
+      return res.status(400).json({ error: "Invalid reservation ID" });
+    }
     let deleted = false;
     for (const room of rooms) {
       const index = room.roomReservations.findIndex(
