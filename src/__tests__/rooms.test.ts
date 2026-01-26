@@ -1,25 +1,54 @@
 import request from "supertest";
 import app from "../app";
 import { rooms } from "../db/roomsDb";
-import { ROOMS, RESERVATIONS } from "./MOCK_DATA";
+import { users } from "../db/usersDb";
+import { ROOMS, RESERVATIONS, USERS } from "./MOCK_DATA";
+
+let defaultUserId: Number;
 
 describe("Rooms API", () => {
   beforeEach(async () => {
     rooms.length = 0;
+    users.length = 0;
+
+    // Creates default admin user
+    const defaultUser = await request(app).post("/users").send(USERS[1]);
+    defaultUserId = defaultUser.body.id;
   });
 
   test("creates a room successfully", async () => {
-    const response = await request(app).post("/rooms").send(ROOMS[0]);
+    const response = await request(app).post("/rooms").send({
+      userId: defaultUserId,
+      name: ROOMS[0].name,
+      capacity: ROOMS[0].capacity,
+    });
 
     expect(response.status).toBe(201);
     expect(response.body.id).toEqual(1);
   });
 
-  test("rejects duplicate room", async () => {
-    await request(app).post("/rooms").send(ROOMS[0]);
+  test("no right to create room", async () => {
+    const regularUser = await request(app).post("/rooms").send(USERS[0]);
+    const regularUserId = regularUser.body.id;
 
     const response = await request(app).post("/rooms").send({
-      name: "Apollo",
+      userId: regularUserId,
+      name: ROOMS[0].name,
+      capacity: ROOMS[0].capacity,
+    });
+    expect(response.status).toBe(403);
+  });
+
+  test("rejects duplicate room", async () => {
+    await request(app).post("/rooms").send({
+      userId: defaultUserId,
+      name: ROOMS[0].name,
+      capacity: ROOMS[0].capacity,
+    });
+
+    const response = await request(app).post("/rooms").send({
+      userId: defaultUserId,
+      name: ROOMS[0].name,
       capacity: 10,
     });
 
@@ -27,18 +56,39 @@ describe("Rooms API", () => {
   });
 
   test("lists all rooms", async () => {
-    await request(app).post("/rooms").send(ROOMS[0]);
+    await request(app).post("/rooms").send({
+      userId: defaultUserId,
+      name: ROOMS[0].name,
+      capacity: ROOMS[0].capacity,
+    });
+    await request(app).post("/rooms").send({
+      userId: defaultUserId,
+      name: ROOMS[1].name,
+      capacity: ROOMS[1].capacity,
+    });
     const response = await request(app).get("/rooms");
 
     expect(response.status).toBe(200);
-    expect(response.body).toHaveLength(1);
+    expect(response.body).toHaveLength(2);
   });
 
   test("lists reservations of room", async () => {
-    const createResponse = await request(app).post("/rooms").send(ROOMS[0]);
+    const createResponse = await request(app).post("/rooms").send({
+      userId: defaultUserId,
+      name: ROOMS[0].name,
+      capacity: ROOMS[0].capacity,
+    });
     const roomId = createResponse.body.id;
-    await request(app).post(`/reservations/${roomId}`).send(RESERVATIONS[0]);
-    await request(app).post(`/reservations/${roomId}`).send(RESERVATIONS[2]);
+    await request(app).post(`/reservations/${roomId}`).send({
+      userId: defaultUserId,
+      startTime: RESERVATIONS[0].startTime,
+      endTime: RESERVATIONS[0].endTime,
+    });
+    await request(app).post(`/reservations/${roomId}`).send({
+      userId: defaultUserId,
+      startTime: RESERVATIONS[2].startTime,
+      endTime: RESERVATIONS[2].endTime,
+    });
 
     const response = await request(app).get(`/rooms/${roomId}`);
 
@@ -48,26 +98,56 @@ describe("Rooms API", () => {
   });
 
   test("deletes room successfully", async () => {
-    const firstRoomRes = await request(app).post("/rooms").send(ROOMS[0]); // id = 1
-    const secondRoomRes = await request(app).post("/rooms").send(ROOMS[1]); // id = 2
+    const firstRoomRes = await request(app).post("/rooms").send({
+      userId: defaultUserId,
+      name: ROOMS[0].name,
+      capacity: ROOMS[0].capacity,
+    }); // id = 1
+    const secondRoomRes = await request(app).post("/rooms").send({
+      userId: defaultUserId,
+      name: ROOMS[1].name,
+      capacity: ROOMS[1].capacity,
+    }); // id = 2
     const firstRoomId = firstRoomRes.body.id;
     const secondRoomId = secondRoomRes.body.id;
-    await request(app)
-      .post(`/reservations/${secondRoomId}`)
-      .send(RESERVATIONS[0]); // roomId = 2
-    await request(app)
-      .post(`/reservations/${secondRoomId}`)
-      .send(RESERVATIONS[2]); // roomId = 2
-    await request(app)
-      .post(`/reservations/${firstRoomId}`)
-      .send(RESERVATIONS[0]); // roomId = 1
+    await request(app).post(`/reservations/${secondRoomId}`).send({
+      userId: defaultUserId,
+      startTime: RESERVATIONS[0].startTime,
+      endTime: RESERVATIONS[0].endTime,
+    }); // roomId = 2
+    await request(app).post(`/reservations/${secondRoomId}`).send({
+      userId: defaultUserId,
+      startTime: RESERVATIONS[2].startTime,
+      endTime: RESERVATIONS[2].endTime,
+    }); // roomId = 2
+    await request(app).post(`/reservations/${firstRoomId}`).send({
+      userId: defaultUserId,
+      startTime: RESERVATIONS[0].startTime,
+      endTime: RESERVATIONS[0].endTime,
+    }); // roomId = 1
 
-    const deleteResponse = await request(app).delete(`/rooms/${secondRoomId}`);
-
-    const firstRoom = rooms.find((r) => r.id === firstRoomId);
-    const secondRoom = rooms.find((r) => r.id === secondRoomId);
+    const deleteResponse = await request(app)
+      .delete(`/rooms/${secondRoomId}`)
+      .send({ userId: defaultUserId });
 
     expect(rooms).toHaveLength(1);
     expect(deleteResponse.status).toBe(204);
+  });
+
+  test("no right to delete room", async () => {
+    const room = await request(app).post("/rooms").send({
+      userId: defaultUserId,
+      name: ROOMS[0].name,
+      capacity: ROOMS[0].capacity,
+    });
+    const roomId = room.body.id;
+    const regularUser = await request(app).post("/rooms").send(USERS[0]);
+    const regularUserId = regularUser.body.id;
+
+    const deleteResponse = await request(app)
+      .delete(`/rooms/${roomId}`)
+      .send({ userId: regularUserId });
+
+    expect(deleteResponse.status).toBe(403);
   });
 });

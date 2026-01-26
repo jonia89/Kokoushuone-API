@@ -35,9 +35,15 @@ describe("Users API", () => {
   });
 
   test("Lists reservations of user", async () => {
-    const user = await request(app).post("/users").send(USERS[0]);
+    const user = await request(app).post("/users").send(USERS[1]);
     const userId = user.body.id;
-    const room = await request(app).post("/rooms").send(ROOMS[0]);
+    const room = await request(app)
+      .post("/rooms")
+      .send({
+        userId: userId,
+        name: ROOMS[1].name,
+        capacity: ROOMS[1].capacity,
+      });
     const roomId = room.body.id;
     await request(app).post(`/reservations/${roomId}`).send({
       userId: userId,
