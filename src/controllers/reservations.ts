@@ -27,6 +27,9 @@ reservationsRouter.post("/:roomId", async (req: Request, res: Response) => {
       startTime: Date;
       endTime: Date;
     };
+    if (userId == null || typeof userId !== "number") {
+      return res.status(400).json({ error: "Valid userId is required" });
+    }
 
     if (!startTime || !endTime) {
       return res.status(400).json({ error: "Missing required fields" });

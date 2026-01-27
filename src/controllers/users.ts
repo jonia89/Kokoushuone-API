@@ -4,6 +4,7 @@ import {
   deleteUser,
   getUserById,
   getUsersReservations,
+  userExistsByName,
 } from "../db/usersDb";
 import { isAdmin } from "../utils/isAdmin";
 
@@ -20,6 +21,10 @@ usersRouter.post("/", async (req: Request, res: Response) => {
     if (!name) {
       return res.status(400).json({ error: "Name missing" });
     }
+    const exists = await userExistsByName(name);
+    if (exists) {
+      return res.status(409).json({ error: "User already exists" });
+    }
 
     const newUser = await createUser(name, admin);
     res.status(201).json(newUser);
@@ -32,6 +37,9 @@ usersRouter.post("/", async (req: Request, res: Response) => {
 usersRouter.get("/:id", async (req: Request, res: Response) => {
   try {
     const userId = Number(req.params.id);
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
     const userData = await getUserById(userId);
     if (!userData) {
       return res.status(404).json({ error: "User not found" });

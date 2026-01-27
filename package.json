@@ -3,7 +3,7 @@
     "dev": "ts-node-dev src/index.ts",
     "build": "tsc",
     "start": "node dist/app.js",
-    "test": "jest"
+    "test": "jest --runInBand --detectOpenHandles"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

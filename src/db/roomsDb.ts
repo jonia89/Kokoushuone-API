@@ -29,9 +29,14 @@ export const getAllRooms = async (): Promise<Room[]> => {
   }));
 };
 
-export const getRoomById = async (id: number): Promise<Room | null> => {
+export const getRoomById = async (id: number) => {
   const result = await pool.query("SELECT * FROM rooms WHERE id = $1", [id]);
   if (result.rows.length === 0) return null;
+
+  const reservationsResult = await pool.query(
+    "SELECT * FROM reservations WHERE room_id = $1",
+    [id],
+  );
 
   const room = result.rows[0];
   return {
@@ -39,6 +44,13 @@ export const getRoomById = async (id: number): Promise<Room | null> => {
     userId: room.user_id,
     name: room.name,
     capacity: room.capacity,
+    roomReservations: reservationsResult.rows.map((row) => ({
+      id: row.id,
+      userId: row.user_id,
+      roomId: row.room_id,
+      startTime: row.start_time,
+      endTime: row.end_time,
+    })),
   };
 };
 

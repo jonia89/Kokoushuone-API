@@ -12,8 +12,8 @@ describe("Reservations API", () => {
     await pool.query("DELETE FROM rooms");
     await pool.query("DELETE FROM users");
     await pool.query("ALTER SEQUENCE users_id_seq RESTART WITH 1");
-  await pool.query("ALTER SEQUENCE rooms_id_seq RESTART WITH 1");
-  await pool.query("ALTER SEQUENCE reservations_id_seq RESTART WITH 1");
+    await pool.query("ALTER SEQUENCE rooms_id_seq RESTART WITH 1");
+    await pool.query("ALTER SEQUENCE reservations_id_seq RESTART WITH 1");
     // Create default room for tests
     const defaultUser = await request(app).post("/users").send(USERS[1]);
     defaultUserId = defaultUser.body.id;

@@ -51,3 +51,10 @@ export const deleteUser = async (id: number): Promise<boolean> => {
   const result = await pool.query("DELETE FROM users WHERE id = $1", [id]);
   return (result.rowCount ?? 0) > 0;
 };
+
+export const userExistsByName = async (name: string): Promise<boolean> => {
+  const result = await pool.query("SELECT 1 FROM users WHERE name = $1", [
+    name,
+  ]);
+  return result.rows.length > 0;
+};
