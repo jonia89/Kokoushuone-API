@@ -21,22 +21,6 @@ export const createReservation = async (
   };
 };
 
-export const getReservationsByRoom = async (
-  roomId: number,
-): Promise<Reservation[]> => {
-  const result = await pool.query(
-    "SELECT * FROM reservations WHERE room_id = $1",
-    [roomId],
-  );
-  return result.rows.map((row) => ({
-    id: row.id,
-    userId: row.user_id,
-    roomId: row.room_id,
-    startTime: row.start_time,
-    endTime: row.end_time,
-  }));
-};
-
 export const deleteReservation = async (id: number): Promise<boolean> => {
   const result = await pool.query("DELETE FROM reservations WHERE id = $1", [
     id,

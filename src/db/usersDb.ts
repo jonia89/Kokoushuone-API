@@ -2,33 +2,42 @@ import { pool } from "./connection";
 import { User } from "../models/User";
 import { Reservation } from "../models/Reservation";
 
-export const getUserById = async (id: number): Promise<User | null> => {
-  const result = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
-  if (result.rows.length === 0) return null;
-
-  const user = result.rows[0];
-  return {
-    id: user.id,
-    name: user.name,
-    admin: user.admin,
-  };
-};
-export const getUsersReservations = async (
+export const getUserDataById = async (
   id: number,
-): Promise<Reservation[]> => {
+): Promise<{ user: User; reservations: Reservation[] } | null> => {
   const result = await pool.query(
-    "SELECT * FROM reservations WHERE user_id = $1",
+    `
+    SELECT
+      u.id AS user_id,
+      u.name,
+      u.admin,
+      r.id AS reservation_id,
+      r.room_id,
+      r.start_time,
+      r.end_time
+    FROM users u
+    LEFT JOIN reservations r ON r.user_id = u.id
+    WHERE u.id = $1
+    `,
     [id],
   );
-  if (result.rows.length === 0) return [];
+  if (result.rows.length === 0) return null;
 
-  return result.rows.map((row) => ({
-    id: row.id,
-    userId: row.user_id,
-    roomId: row.room_id,
-    startTime: row.start_time,
-    endTime: row.end_time,
-  }));
+  const user: User = {
+    id: result.rows[0].user_id,
+    name: result.rows[0].name,
+    admin: result.rows[0].admin,
+  };
+  const reservations = result.rows
+    .filter((r) => r.reservation_id !== null)
+    .map((r) => ({
+      id: r.reservation_id,
+      userId: r.user_id,
+      roomId: r.room_id,
+      startTime: r.start_time,
+      endTime: r.end_time,
+    }));
+  return { user, reservations };
 };
 
 export const createUser = async (
