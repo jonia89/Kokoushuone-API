@@ -6,7 +6,6 @@ import {
   getRoomById,
   deleteRoom,
 } from "../db/roomsDb";
-import { getUserById } from "../db/usersDb";
 import { isAdmin } from "../utils/isAdmin";
 
 const roomsRouter = Router();

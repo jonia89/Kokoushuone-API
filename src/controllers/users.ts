@@ -2,11 +2,9 @@ import { Router, Request, Response } from "express";
 import {
   createUser,
   deleteUser,
-  getUserById,
-  getUsersReservations,
+  getUserDataById,
   userExistsByName,
 } from "../db/usersDb";
-import { isAdmin } from "../utils/isAdmin";
 
 const usersRouter = Router();
 
@@ -40,12 +38,12 @@ usersRouter.get("/:id", async (req: Request, res: Response) => {
     if (isNaN(userId)) {
       return res.status(400).json({ error: "Invalid user ID" });
     }
-    const userData = await getUserById(userId);
+    const userData = await getUserDataById(userId);
     if (!userData) {
       return res.status(404).json({ error: "User not found" });
     }
-    const reservations = await getUsersReservations(userId);
-    res.json({ ...userData, reservations });
+
+    res.json({ ...userData.user, reservations: userData.reservations });
   } catch (error) {
     return res.status(500).json({ error: "Internal server error" });
   }

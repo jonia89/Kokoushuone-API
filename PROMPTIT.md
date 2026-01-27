@@ -5802,3 +5802,348 @@ Jos haluat seuraavaksi:
 - tai valmistautua haastatteluun tämän projektin pohjalta
 
 👉 sano vain, jatketaan 👍
+
+#Minä:
+eikö näissä voisi käyttää JOIN?:
+
+```ts
+export const getUserById = async (id: number): Promise<User | null> => {
+  const result = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
+  if (result.rows.length === 0) return null;
+
+  const user = result.rows[0];
+  return {
+    id: user.id,
+    name: user.name,
+    admin: user.admin,
+  };
+};
+export const getUsersReservations = async (
+  id: number,
+): Promise<Reservation[]> => {
+  const result = await pool.query(
+    "SELECT * FROM reservations WHERE user_id = $1",
+    [id],
+  );
+  if (result.rows.length === 0) return [];
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    roomId: row.room_id,
+    startTime: row.start_time,
+    endTime: row.end_time,
+  }));
+};
+```
+
+#ChatGPT:
+Hyvä kysymys – **kyllä, JOIN sopii tähän oikein hyvin**, _riippuen siitä mitä haluat palauttaa_ 👍
+Käydään tämä selkeästi läpi.
+
+---
+
+## Milloin JOIN on järkevä?
+
+JOIN on hyvä valinta, jos:
+
+- haluat **käyttäjän ja hänen varauksensa samalla kyselyllä**
+- haluat **vähentää useita DB-kutsuja**
+- tarvitset **yhdistettyä dataa** (esim. user + reservations)
+
+Jos taas:
+
+- käyttäjä ja varaukset haetaan **eri näkymiin**
+- varauksia haetaan usein **ilman käyttäjää**
+
+→ nykyinen ratkaisu on täysin ok.
+
+---
+
+## Esimerkki: User + Reservations JOINilla
+
+### SQL
+
+```sql
+SELECT
+  u.id   AS user_id,
+  u.name,
+  u.admin,
+  r.id   AS reservation_id,
+  r.room_id,
+  r.start_time,
+  r.end_time
+FROM users u
+LEFT JOIN reservations r ON r.user_id = u.id
+WHERE u.id = $1;
+```
+
+`LEFT JOIN` on tärkeä → käyttäjä palautuu vaikka hänellä ei olisi varauksia.
+
+---
+
+### TypeScript-toteutus
+
+```ts
+export const getUserWithReservations = async (
+  id: number,
+): Promise<{ user: User; reservations: Reservation[] } | null> => {
+  const result = await pool.query(
+    `
+    SELECT
+      u.id AS user_id,
+      u.name,
+      u.admin,
+      r.id AS reservation_id,
+      r.room_id,
+      r.start_time,
+      r.end_time
+    FROM users u
+    LEFT JOIN reservations r ON r.user_id = u.id
+    WHERE u.id = $1
+    `,
+    [id],
+  );
+
+  if (result.rows.length === 0) return null;
+
+  const user: User = {
+    id: result.rows[0].user_id,
+    name: result.rows[0].name,
+    admin: result.rows[0].admin,
+  };
+
+  const reservations: Reservation[] = result.rows
+    .filter((row) => row.reservation_id !== null)
+    .map((row) => ({
+      id: row.reservation_id,
+      userId: row.user_id,
+      roomId: row.room_id,
+      startTime: row.start_time,
+      endTime: row.end_time,
+    }));
+
+  return { user, reservations };
+};
+```
+
+---
+
+## Miksi JOIN ei ole aina paras?
+
+**JOIN ei ole automaattisesti parempi**, koska:
+
+- tulos täytyy **rakentaa käsin** (kuten yllä)
+- jos käyttäjällä on paljon varauksia → sama user-data toistuu riveillä
+- erilliset kyselyt ovat usein **selkeämpiä ja helpommin ylläpidettäviä**
+
+---
+
+## Suositus tähän tilanteeseen
+
+✔ **Nykyinen ratkaisu on täysin oikein**
+✔ JOIN on hyvä, jos endpoint on tyyliä:
+
+```
+GET /users/:id (palauttaa user + reservations)
+```
+
+Jos haluat, voin:
+
+- refaktoroida tämän **repository patterniin**
+- tehdä tästä **yhden REST-endpointin**
+- näyttää **SQL JSON_AGG** -version (Postgresissa todella siisti)
+
+Kumpaan suuntaan haluat jatkaa? 🚀
+
+#Minä:
+export const getAllRooms = async (): Promise<Room[]> => {
+const result = await pool.query("SELECT \* FROM rooms");
+return result.rows.map((row) => ({
+id: row.id,
+userId: row.user_id,
+name: row.name,
+capacity: row.capacity,
+}));
+};
+
+export const getRoomById = async (id: number) => {
+const result = await pool.query("SELECT \* FROM rooms WHERE id = $1", [id]);
+if (result.rows.length === 0) return null;
+
+const reservationsResult = await pool.query(
+"SELECT \* FROM reservations WHERE room_id = $1",
+[id],
+);
+
+const room = result.rows[0];
+return {
+id: room.id,
+userId: room.user_id,
+name: room.name,
+capacity: room.capacity,
+roomReservations: reservationsResult.rows.map((row) => ({
+id: row.id,
+userId: row.user_id,
+roomId: row.room_id,
+startTime: row.start_time,
+endTime: row.end_time,
+})),
+};
+};
+tässäkin JOIN olisi varmaan parempi
+
+#ChatGPT:
+Lyhyt vastaus: **JOIN ei ole pakollinen – mutta tässä kohtaa se on jo vähän perustellumpi** 👍
+Pidempi vastaus alla, konkreettisilla esimerkeillä.
+
+---
+
+## 1️⃣ Nykyinen toteutus – täysin ok
+
+```ts
+const result = await pool.query("SELECT * FROM rooms WHERE id = $1", [id]);
+const reservationsResult = await pool.query(
+  "SELECT * FROM reservations WHERE room_id = $1",
+  [id],
+);
+```
+
+**Hyvää tässä**
+
+- Selkeä ja helppo ymmärtää
+- Looginen: huone ensin, sitten varaukset
+- Helppo debugata
+- Ei turhaa SQL-magiaa
+
+👉 Tämä on **oikein toteutettu** ratkaisu, ei mikään virhe.
+
+---
+
+## 2️⃣ JOIN on tässä jo järkevämpi kuin user-case
+
+Tässä endpointissa:
+
+```
+GET /rooms/:id
+```
+
+on hyvin tyypillistä, että **aina halutaan myös varaukset** → JOIN alkaa olla luonnollinen.
+
+---
+
+## 3️⃣ JOIN-versio (LEFT JOIN, oikeaoppinen)
+
+### Repository
+
+```ts
+export const getRoomById = async (
+  id: number,
+): Promise<(Room & { roomReservations: Reservation[] }) | null> => {
+  const result = await pool.query(
+    `
+    SELECT
+      r.id AS room_id,
+      r.user_id,
+      r.name,
+      r.capacity,
+      res.id AS reservation_id,
+      res.user_id AS reservation_user_id,
+      res.start_time,
+      res.end_time
+    FROM rooms r
+    LEFT JOIN reservations res ON res.room_id = r.id
+    WHERE r.id = $1
+    `,
+    [id],
+  );
+
+  if (result.rows.length === 0) return null;
+
+  const room = {
+    id: result.rows[0].room_id,
+    userId: result.rows[0].user_id,
+    name: result.rows[0].name,
+    capacity: result.rows[0].capacity,
+  };
+
+  const roomReservations = result.rows
+    .filter((r) => r.reservation_id !== null)
+    .map((r) => ({
+      id: r.reservation_id,
+      userId: r.reservation_user_id,
+      roomId: room.id,
+      startTime: r.start_time,
+      endTime: r.end_time,
+    }));
+
+  return { ...room, roomReservations };
+};
+```
+
+---
+
+## 4️⃣ Milloin **ei** kannata käyttää JOINia
+
+Älä käytä JOINia, jos:
+
+- huone haetaan usein **ilman varauksia**
+- varauksia haetaan myös erikseen (esim. kalenterinäkymä)
+- haluat pitää repository-funktiot **yksinkertaisina ja uudelleenkäytettävinä**
+
+---
+
+## 5️⃣ Postgres Pro -ratkaisu: `json_agg` (paras tässä)
+
+Jos käytät PostgreSQL:ää (käytät 👍), tämä on **siistein ja tehokkain** tapa:
+
+```sql
+SELECT
+  r.id,
+  r.user_id,
+  r.name,
+  r.capacity,
+  COALESCE(
+    json_agg(
+      json_build_object(
+        'id', res.id,
+        'userId', res.user_id,
+        'roomId', res.room_id,
+        'startTime', res.start_time,
+        'endTime', res.end_time
+      )
+    ) FILTER (WHERE res.id IS NOT NULL),
+    '[]'
+  ) AS room_reservations
+FROM rooms r
+LEFT JOIN reservations res ON res.room_id = r.id
+WHERE r.id = $1
+GROUP BY r.id;
+```
+
+→ Node-puolella ei tarvitse mapata rivejä lainkaan 🔥
+
+---
+
+## 6️⃣ Suositus juuri sun koodiin
+
+- ✅ `getAllRooms` → **ei JOINia**, oikein näin
+- 🔄 `getRoomById` → **JOIN tai json_agg** on järkevä
+- ❌ JOINia ei tarvitse käyttää “kaikkialla vain koska voi”
+
+---
+
+### Yhteenveto
+
+> JOIN ei ole parempi itsessään.
+> JOIN on parempi **kun data kuuluu loogisesti yhteen**.
+
+Tässä huone + varaukset = **kyllä, kuuluu yhteen** 👍
+
+Jos haluat, seuraavaksi voin:
+
+- refaktoroida tämän **json_agg + TypeScript typing** -version
+- auttaa tekemään tästä **siistin RoomRepositoryn**
+- tarkistaa että indeksit (`room_id`, `user_id`) on oikein
+
+Kumpi kiinnostaa?
